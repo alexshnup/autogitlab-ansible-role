@@ -1,0 +1,8 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: no
+  tasks:
+    - name: Print debug message
+      debug:
+        msg: "TOFO verify"

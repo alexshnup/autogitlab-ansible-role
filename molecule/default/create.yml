@@ -1,0 +1,135 @@
+- name: Create
+  hosts: localhost
+  gather_facts: false
+  vars:
+    molecule_inventory:
+      all:
+        children:
+          molecule:
+            hosts: {}
+  tasks:
+    - name: Display path to molecule_inventory
+      ansible.builtin.debug:
+        msg: "{{ molecule_ephemeral_directory }}/inventory/molecule_inventory.yml"
+
+    # - name: Create a network with custom IPAM config
+    #   docker_network:
+    #     name: networkmolecule
+    #     ipam_config:
+    #       - subnet: "{{ docker_network_subnet }}"
+    #         gateway: "{{ docker_network_gateway }}"
+    #         iprange: "{{ docker_network_iprange }}"
+
+    - name: Create a container
+      community.docker.docker_container:
+        name: "{{ item.name }}"
+        hostname: "{{ item.hostname }}"
+        platform: "{{ item.platform }}"
+        # networks:
+        #   - name: networkmolecule
+        #     ipv4_address: "{{ item.ipaddress }}"
+        image: "{{ item.image }}"
+        state: started
+        # command: "{{ item.command }}"
+        log_driver: json-file
+        privileged: "{{ item.privileged }}"
+        # cgroupns_mode: host
+        ports: 
+          - '0.0.0.0:80:80'
+        exposed_ports:
+          - "{{ GITLAB_WEB_PORT | default(80) }}/tcp"
+          # - "{{ GITLAB_SSH_PORT | default(22) }}/tcp"
+      loop: "{{ molecule_yml.platforms }}"
+      register: result
+    
+    # - name: Install Python inside container
+    #   community.docker.docker_container:
+    #     name: "{{ item.name }}"
+    #     command: "apk add python3"
+    #     state: started
+    #   loop: "{{ molecule_yml.platforms }}"
+
+    # - name: Print some info
+    #   ansible.builtin.debug:
+    #     msg: "{{ result.results }}"
+    
+    - name: Print ip addresses
+      ansible.builtin.debug:
+        msg: "IP Address of {{ item.container.Name }}: {{ item.container.NetworkSettings.IPAddress }}"
+      loop: "{{ [result.results] if result.results is mapping else result.results }}"
+      when: item is defined and item.container is defined and item.container.NetworkSettings is defined and item.container.NetworkSettings.IPAddress is defined
+      loop_control:
+        label: "{{ item.container.Name if (item.container is defined) else 'Undefined container' }}"
+      
+    - name: Fail if container is not running
+      when: >
+        item.container.State.ExitCode != 0 or
+        not item.container.State.Running
+      ansible.builtin.include_tasks:
+        file: tasks/create-fail.yml
+      loop: "{{ [result.results] if result.results is mapping else result.results }}"
+      loop_control:
+        label: "{{ item.container.Name if (item.container is defined) else 'Undefined container' }}"
+
+    - name: Add container to molecule_inventory
+      vars:
+        current_host_name: "{{ item.name }}"
+      ansible.builtin.set_fact:
+        molecule_inventory: >-
+          {{
+            molecule_inventory | 
+            combine({
+              'all': {
+                'children': {
+                  'molecule': {
+                    'hosts': {
+                      current_host_name: {
+                        'ansible_connection': 'community.docker.docker',
+                      }
+                    }
+                  }
+                }
+              }
+            }, recursive=True)
+          }}
+      loop: "{{ molecule_yml.platforms }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+        # print content of molecule_inventory
+    - name: Print molecule_inventory
+      ansible.builtin.debug:
+        msg: "{{ molecule_inventory }}"
+
+    - name: Dump molecule_inventory
+      ansible.builtin.copy:
+        content: |
+          {{ molecule_inventory | to_yaml }}
+        dest: "{{ molecule_ephemeral_directory }}/inventory/molecule_inventory.yml"
+        mode: 0600
+    
+    - name: Force inventory refresh
+      ansible.builtin.meta: refresh_inventory
+
+    - name: Fail if molecule group is missing
+      ansible.builtin.assert:
+        that: "'molecule' in groups"
+        fail_msg: |
+          molecule group was not found inside inventory groups: {{ groups }}
+      run_once: true # noqa: run-once[task]
+  
+
+
+# we want to avoid errors like "Failed to create temporary directory"
+- name: Validate that inventory was refreshed
+  hosts: molecule
+  gather_facts: false
+  tasks:
+    - name: Check uname
+      ansible.builtin.raw: uname -a
+      register: result
+      changed_when: false
+
+    - name: Display uname info
+      ansible.builtin.debug:
+        msg: "{{ result.stdout }}"

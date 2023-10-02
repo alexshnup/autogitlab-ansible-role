@@ -1,0 +1,23 @@
+---
+- name: Debug adding CI/CD variable
+  debug:
+    msg: "Try to add CI/CD variable {{ item.key }} with value {{ item.value }} to project {{ item.project_id }}"
+
+- name: Adding CI/CD variable to the project
+  uri:
+    url: "{{ GITLAB_URL }}/api/v4/projects/{{ item.project_id }}/variables"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ NEW_USER_TOKEN }}"
+    body:
+      key: "{{ item.key }}"
+      value: "{{ item.value }}"
+    body_format: form-urlencoded
+    return_content: yes
+    status_code: [200, 201] 
+#   register: result
+
+# - name: Display the result of adding CI/CD variable
+#   debug:
+#     var: result.results
+

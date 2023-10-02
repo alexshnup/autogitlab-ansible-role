@@ -1,0 +1,165 @@
+---
+# - name: Check if Docker network exists
+#   command: docker network ls | grep "{{ GITLAB_DOCKER_NETWORK_NAME }}"
+#   register: network_result
+#   changed_when: false
+#   failed_when: false
+
+# - name: Create Docker network
+#   command: docker network create "{{ GITLAB_DOCKER_NETWORK_NAME }}"
+#   when: network_result.rc != 0
+
+# - name: Check if GitLab is up and running
+#   uri:
+#     url: "http://{{ GITLAB_HOSTNAME }}/users/sign_in"
+#     return_content: yes
+#   register: gitlab_result
+#   failed_when: false
+
+- name: Check Folders
+  include_tasks: check_folders.yml
+  loop: "{{ repo_directory_list }}"
+  loop_control:
+    loop_var: repo
+
+- name: Start GitLab in Docker
+  docker_container:
+    name: "{{ GITLAB_HOSTNAME }}"
+    image: gitlab/gitlab-ce:latest
+    state: started
+    detach: yes
+    # network_mode: "{{ GITLAB_DOCKER_NETWORK_NAME }}"
+    hostname: "{{ GITLAB_HOSTNAME }}"
+    restart_policy: always
+    ports:
+      - "{{ GITLAB_WEB_PORT }}:80"
+      - "{{ GITLAB_SSH_PORT }}:22"
+  # when: "'GitLab' not in gitlab_result.content"
+
+- name: Wait for GitLab to be ready
+  uri:
+    url: "http://{{ GITLAB_HOSTNAME }}/users/sign_in"
+    return_content: yes
+  register: gitlab_result
+  until: ("'GitLab' in gitlab_result.content") and (gitlab_result.status == 200)
+  retries: 100
+  delay: 15
+
+# ...continue with the other tasks, such as creating a user, token, checking token, runner, etc.
+
+- include_tasks: get_container_ip.yml
+
+# and so on for other actions...
+
+- name: Fetch the authenticated user's data using the token
+  uri:
+    url: "{{ GITLAB_URL }}/api/v4/user"
+    method: GET
+    headers:
+      PRIVATE-TOKEN: "{{ NEW_USER_TOKEN }}"
+    return_content: yes
+  register: user_response
+  ignore_errors: yes
+
+- name: Print authenticated user data
+  ansible.builtin.debug:
+    msg: "{{ user_response }}"
+
+- name: Check if token is valid
+  debug:
+    msg: "Token is valid."
+  when: "'username' in user_response.content"
+
+- name: Display message and call create user function
+  block:
+    - debug:
+        msg: "Token is NOT valid."
+    - include_tasks: create_user_and_get_token.yml
+  when: "'username' not in user_response.content"
+
+
+# Check runners
+
+- name: Getting the list of all Runners
+  uri:
+    url: "{{ GITLAB_URL }}/api/v4/runners/all"
+    method: GET
+    headers:
+      PRIVATE-TOKEN: "{{ NEW_USER_TOKEN }}"
+    return_content: yes
+  register: runners_response
+  until: runners_response.status == 200
+  retries: 10
+  delay: 5
+
+
+- name: Process the runners list
+  set_fact:
+    runners_list: "{{ runners_response.json }}"
+    runners_count: "{{ runners_response.json | length }}"
+
+- name: Debug info about the runners
+  ansible.builtin.debug:
+    msg: "{{ runners_response }}"
+- name: Debug info about the runners
+  ansible.builtin.debug:
+    msg: "runners_list={{ runners_list }} runners_count={{ runners_count }}"
+
+- name: Display message if no runners found and perform operations
+  block:
+    - debug:
+        msg: "No Runners found."
+    - include_tasks: get_container_ip.yml
+    - include_tasks: create_runner_in_docker.yml
+  when: runners_count | int == 0
+
+- name: Display the runners list
+  debug:
+    msg: 
+      - "Runners found:"
+      - "{{ item.description }}"
+      - "ID: {{ item.id }}"
+      - "Status: {{ item.status }}"
+      - "Contacted at: {{ item.contacted_at }}"
+  with_items: "{{ runners_list }}"
+  when: runners_count | int > 0
+
+
+- name: Git Push
+  include_tasks: git_push.yml
+  loop: "{{ repo_directory_list }}"
+  loop_control:
+    loop_var: repo
+
+
+- name: Get ID for Project 1
+  include_tasks: get_project_id.yml
+  vars:
+    project_name: "{{ PROJECT_NAME }}"
+    result_var_name: "project_id"
+
+- name: Display the Project ID
+  debug:
+    msg: "Found Project {{ PROJECT_NAME }} with ID: {{ project_id }}"
+
+- name: Add CI/CD variables for a project
+  include_tasks: add_cicd_variable.yml
+  vars:
+    cicd_variables:
+      - { project_id: "{{ project_id }}", key: "GITLAB_URL_PREFIX", value: "http" }
+      - { project_id: "{{ project_id }}", key: "GITLAB_URL_HOSTNAME", value: "{{ GITLAB_HOSTNAME }}" }
+      - { project_id: "{{ project_id }}", key: "GITLAB_PATH_SRC_PROJECT", value: "{{ GITLAB_PATH_SRC_PROJECT }}" }
+      - { project_id: "{{ project_id }}", key: "CI_JOB_TOKEN", value: "{{ NEW_USER_TOKEN }}" }
+      - { project_id: "{{ project_id }}", key: "CI_REGISTRY_USER", value: "{{ CI_REGISTRY_USER }}" }
+      - { project_id: "{{ project_id }}", key: "CI_REGISTRY_PASSWORD", value: "{{ CI_REGISTRY_PASSWORD }}" }
+      - { project_id: "{{ project_id }}", key: "CI_REGISTRY", value: "{{ CI_REGISTRY }}" }
+  loop: "{{ cicd_variables }}"
+
+
+- name: Add Tag
+  include_tasks: add_tag.yml
+  vars:
+    tag_name: "v1.0.0-test-cicd"
+    tag_message: "Tag for runner"
+    tag_ref: "main"
+    tag_project_id: "{{ project_id }}"

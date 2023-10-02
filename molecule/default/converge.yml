@@ -1,0 +1,115 @@
+- name: Fail if molecule group is missing
+  hosts: localhost
+  tasks:
+    - name: Print some info
+      ansible.builtin.debug:
+        msg: "{{ groups }}"
+
+    - name: Assert group existence
+      ansible.builtin.assert:
+        that: "'molecule' in groups"
+        fail_msg: |
+          molecule group was not found inside inventory groups: {{ groups }}
+
+- name: Converge
+  hosts: molecule
+  # We disable gather facts because it would fail due to our container not
+  # having python installed. This will not prevent use from running 'raw'
+  # commands. Most molecule users are expected to use containers that already
+  # have python installed in order to avoid notable delays installing it.
+  gather_facts: false    
+  pre_tasks:
+    # - name: Copy files and directories
+    #   ansible.builtin.copy:
+    #     src: "{{ repo.path }}/"
+    #     dest: "{{ repo.path }}"
+    #     mode: "0644"
+    #   loop: "{{ repo_directory_list }}"
+    #   loop_control:
+    #     loop_var: repo
+
+    # Unfortunately, the git directories contain a lot of small files 
+    # that will take a very long time to copy through the Ansible copy 
+    # module, we will first pack them into an archive, 
+    # then quickly copy and unpack them there.
+
+    # - name: Archive directory
+    #   ansible.builtin.archive:
+    #     path: "{{ repo.path }}/"
+    #     dest: "/tmp/{{ repo.name }}.tar.gz"
+    #     format: gz
+    #   delegate_to: localhost
+    #   loop: "{{ repo_directory_list }}"
+    #   loop_control:
+    #     loop_var: repo
+    
+    # - name: Copy archive to remote
+    #   ansible.builtin.copy:
+    #     src: "/tmp/{{ repo.name }}.tar.gz"
+    #     dest: "/tmp/{{ repo.name }}.tar.gz"
+    #   loop: "{{ repo_directory_list }}"
+    #   loop_control:
+    #     loop_var: repo
+
+    # - name: Ensure directory exists
+    #   ansible.builtin.file:
+    #     path: "{{ repo.path }}"
+    #     state: directory
+    #   loop: "{{ repo_directory_list }}"
+    #   loop_control:
+    #     loop_var: repo
+
+    # - name: Unarchive on remote
+    #   ansible.builtin.unarchive:
+    #     src: "/tmp/{{ repo.name }}.tar.gz"
+    #     dest: "{{ repo.path }}"  # replace this with the desired destination on the remote host
+    #     remote_src: yes
+    #   loop: "{{ repo_directory_list }}"
+    #   loop_control:
+    #     loop_var: repo
+# --------------------------------------------------------------------------------
+    - name: Include task from role
+      include_role:
+        name: autogitlab-ansible-role
+        tasks_from: check_folders.yml
+      loop: "{{ repo_directory_list }}"
+      loop_control:
+        loop_var: repo
+
+    - name: Copy Docker image Gitlab-Server to the DinD container
+      ansible.builtin.copy:
+        src: gitlab-ce.tar.gz
+        dest: /tmp/gitlab-ce.tar.gz
+        mode: '0644'
+    - name: Load Docker image Gitlab-Server  inside DinD
+      command: docker load -i /tmp/gitlab-ce.tar.gz 
+    
+    - name: Copy Docker image Gitlab-Runner to the DinD container
+      ansible.builtin.copy:
+        src: files/gitlab-runner.tar.gz
+        dest: /tmp/gitlab-runner.tar.gz
+        mode: '0644'
+    - name: Load Docker image Gitlab-Runner inside DinD
+      command: docker load -i /tmp/gitlab-runner.tar.gz 
+
+    - name: Converge Check uname
+      ansible.builtin.raw: uname -a
+      register: result
+      changed_when: false
+
+    - name: Converge Print some info
+      ansible.builtin.assert:
+        that: result.stdout | regex_search("^Linux")
+# --------------------------------------------------------------------------------
+
+    # - name: Install some packages for test
+    #   apt:
+    #     name: 
+    #     - inetutils-ping
+    #     - telnet
+    #     - netcat
+    #     state: present
+    #     update_cache: yes
+
+  roles:
+    - role: autogitlab-ansible-role

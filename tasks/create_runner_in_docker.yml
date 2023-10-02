@@ -1,0 +1,68 @@
+# User token check
+- name: Create user and get token
+  copy:
+    content: |
+      token = ApplicationSetting.current.runners_registration_token
+      puts token
+    dest: "/tmp/get_runner_token.rb"
+
+- name: Copy Ruby script inside GitLab container
+  command: docker cp /tmp/get_runner_token.rb {{ GITLAB_HOSTNAME }}:/tmp/
+
+- name: Execute Ruby script inside GitLab container
+  command: docker exec {{ GITLAB_HOSTNAME }} /opt/gitlab/bin/gitlab-rails runner /tmp/get_runner_token.rb
+  register: runner_token_result
+
+
+- name: Print runner token
+  ansible.builtin.debug:
+    msg: "{{ runner_token_result.stdout }}"
+  when: runner_token_result.stdout is defined
+  changed_when: false
+
+
+
+- name: Start GitLab-Runner in Docker
+  vars:
+    gitlab_etc_hosts:
+      "gitlab-server": "{{ gitlab_ip_result.stdout }}"
+  docker_container:
+    name: "gitlab-runner"
+    image: gitlab/gitlab-runner:latest
+    state: started
+    detach: yes
+    # network_mode: "{{ GITLAB_DOCKER_NETWORK_NAME }}"
+    hostname: "gitlab-runner"
+    etc_hosts: "{{ gitlab_etc_hosts | default({}) }}"
+    restart_policy: always
+    privileged: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  # when: "'GitLab' not in gitlab_result.content"
+
+- name: Register GitLab Runner
+  ansible.builtin.command:
+    cmd: >
+      docker exec gitlab-runner gitlab-runner register
+      --non-interactive
+      --url "http://{{ GITLAB_HOSTNAME }}"
+      --docker-network-mode="bridge"
+      --docker-privileged="true"
+      --docker-extra-hosts="{{ GITLAB_HOSTNAME }}:{{ gitlab_ip_result.stdout }}"
+      --registration-token "{{ runner_token_result.stdout }}"
+      --executor "docker"
+      --docker-image alpine:3
+      --description "docker-runner"
+      --tag-list "{{ RUNNER_TAG_LIST }}"
+      --run-untagged="false"
+      --locked="false"
+      --access-level="not_protected"
+  register: result
+  failed_when:
+    - result.rc != 0
+
+- name: Print registration result
+  ansible.builtin.debug:
+    msg: "{{ result.stdout }}"
+  when: result.stdout is defined
+  changed_when: false

@@ -1,0 +1,36 @@
+# User token check
+- name: Create user and get token
+  copy:
+    content: |
+      u = User.new(
+        username: '{{ NEW_USER_NAME }}',
+        email: '{{ NEW_USER_EMAIL }}',
+        name: '{{ NEW_USER_NAME }}',
+        password: '{{ NEW_USER_PASS }}',
+        password_confirmation: '{{ NEW_USER_PASS }}',
+        admin: true
+      )
+      u.skip_confirmation!
+      u.save!
+
+      u.update!(theme_id: 11) # 11 usually corresponds to the dark theme
+      u.update!(color_scheme_id: 2) # 2 usually corresponds to the dark theme
+
+      token = u.personal_access_tokens.create(
+        scopes: ['api', 'create_runner','read_repository', 'write_repository', 'ai_features', 'sudo', 'admin_mode'],
+        name: 'install_token',
+        expires_at: 365.days.from_now
+      )
+      token.set_token('{{ NEW_USER_TOKEN }}')
+      token.save!
+
+      puts "Token created"
+    dest: "/tmp/create_user_and_token.rb"
+
+- name: Copy Ruby script inside GitLab container
+  command: docker cp /tmp/create_user_and_token.rb {{ GITLAB_HOSTNAME }}:/tmp/
+
+- name: Execute Ruby script inside GitLab container
+  command: docker exec {{ GITLAB_HOSTNAME }} /opt/gitlab/bin/gitlab-rails runner /tmp/create_user_and_token.rb
+
+

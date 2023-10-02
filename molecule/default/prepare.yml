@@ -1,0 +1,13 @@
+- name: Prepare molecule containers
+  hosts: localhost
+  gather_facts: false
+  vars:
+    molecule_inventory:
+      all:
+        hosts: {}
+        molecule: {}
+  tasks:
+    - name: Display path to molecule_inventory
+      ansible.builtin.debug:
+        msg: "{{ molecule_ephemeral_directory }}/inventory/molecule_inventory.yml"
+    

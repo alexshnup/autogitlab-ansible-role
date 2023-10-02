@@ -1,0 +1,22 @@
+---
+# defaults file for autogitlab-role
+GITLAB_WEB_PORT: 80
+GITLAB_SSH_PORT: 222
+GITLAB_URL: "http://127.0.0.1"
+GITLAB_HOSTNAME: "gitlab-server"
+GITLAB_DOCKER_NETWORK_NAME: "bridge"
+INITIAL_ROOT_PASSWORD: "GHJ#hjhd@"
+NEW_USER_NAME: devops
+NEW_USER_PASS: "GHJ#hjhd@"
+NEW_USER_EMAIL: devops@example.com
+NEW_USER_TOKEN: abcd1234
+PROJECT_NAME: frontend-build
+GITLAB_PATH_SRC_PROJECT: "devops/frontend"
+CI_REGISTRY_LOCAL: 0
+CI_REGISTRY: registry
+CI_REGISTRY_USER: testuser
+CI_REGISTRY_PASSWORD: testpassword
+RUNNER_TAG_LIST: "docker03"
+repo_directory_list:
+  - { name: "frontend", path: "../../../../frontend" }
+  - { name: "frontend-build", path: "../../../../frontend_build" }

@@ -1,0 +1,13 @@
+- name: Adding tag
+  uri:
+    url: "{{ GITLAB_URL }}/api/v4/projects/{{ tag_project_id }}/repository/tags"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ NEW_USER_TOKEN }}"
+    body_format: form-urlencoded
+    status_code: [200, 201] 
+    body:
+      tag_name: "{{ tag_name }}"
+      ref: "{{ tag_ref }}"
+      message: "{{ tag_message }}"
+  # register: response

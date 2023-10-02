@@ -1,0 +1,50 @@
+- name: Push repo to GitLab
+  ansible.builtin.debug:
+    msg: "name={{ repo.name }} path={{ repo.path }}"
+
+# - name: Ensure correct ownership for git repo
+#   file:
+#     path: "{{ repo.path }}"
+#     owner: "{{ ansible_user }}"
+#     group: "{{ ansible_user }}"
+#     recurse: yes
+#     state: directory
+
+# - name: Ensure correct permissions for git repo
+#   file:
+#     path: "{{ repo.path }}"
+#     mode: '0750'
+#     recurse: yes
+#     state: directory
+
+# - name: Add safe.directory exception for git repo
+#   command:
+#     cmd: "git config --global --add safe.directory {{ repo.path }}"
+
+# - name: Add changes to git
+#   command:
+#     cmd: git add .
+#     chdir: "{{ repo.path }}"
+
+# - name: Commit changes to git
+#   command:
+#     cmd: git commit -m "Initial commit"
+#     chdir: "{{ repo.path }}"
+
+- name: Debug info about the runners
+  ansible.builtin.debug:
+    msg: "git remote set-url origin {{ GITLAB_URL | urlsplit('scheme') }}://oauth2:{{ NEW_USER_TOKEN }}@{{ GITLAB_URL | urlsplit('hostname') }}/{{ NEW_USER_NAME }}/{{ repo.name }}.git"
+
+- name: Set git remote URL
+  command:
+    #     git remote set-url origin "http://oauth2:$NEW_USER_TOKEN@127.0.0.1/devops/frontend.git"
+    cmd: "git remote set-url origin {{ GITLAB_URL | urlsplit('scheme') }}://oauth2:{{ NEW_USER_TOKEN }}@{{ GITLAB_URL | urlsplit('hostname') }}/{{ NEW_USER_NAME }}/{{ repo.name }}.git"
+    chdir: "{{ repo.path }}"
+  delegate_to: localhost
+
+- name: Push changes to new origin
+  command:
+    cmd: "git push -u origin --all"
+    chdir: "{{ repo.path }}"
+  delegate_to: localhost
+

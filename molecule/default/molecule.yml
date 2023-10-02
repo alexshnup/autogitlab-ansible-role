@@ -1,0 +1,56 @@
+---
+driver:
+  name: docker
+dependency:
+  name: galaxy
+  options:
+    requirements-file: requirements.yml
+lint: |
+  set -e
+  yamllint .
+  ansible-lint
+  flake8
+  # Add the role-name to skip_list or warn_list as shown below:
+  ansible-galaxy-import --skip-list role-name
+platforms:
+  - name: docker-host
+    hostname: docker-host
+    image: "docker-python3:24.0.2-dind"
+    privileged: true        
+    # platform: "linux/amd64"  
+    platform: "linux/arm64"  
+    # network: networkmolecule
+    # ipaddress: "172.16.100.101"
+
+    
+provisioner:
+  name: ansible
+  playbooks:
+    converge: converge.yml
+  inventory:
+    group_vars:
+      all:
+        # # Role vars
+        # GITLAB_URL: "http://127.0.0.1"
+        # GITLAB_HOSTNAME: "gitlab-server"
+        # GITLAB_DOCKER_NETWORK_NAME: "bridge"
+        # INITIAL_ROOT_PASSWORD: "GHJ#hjhd@"
+        # NEW_USER_NAME: devops
+        # NEW_USER_PASS: "GHJ#hjhd@"
+        # NEW_USER_EMAIL: devops@example.com
+        # NEW_USER_TOKEN: abcd1234
+        # PROJECT_NAME: frontend-build
+        # GITLAB_PATH_SRC_PROJECT: "devops/frontend"
+        # CI_REGISTRY_LOCAL: 0
+        # CI_REGISTRY: registry
+        # CI_REGISTRY_USER: testuser
+        # CI_REGISTRY_PASSWORD: testpassword
+        # RUNNER_TAG_LIST: "docker03"
+        # repo_directory_list:
+        #   - { name: "frontend", path: "../../../../frontend" }
+        #   - { name: "frontend-build", path: "../../../../frontend_build" }
+
+
+verifier:
+  name: ansible
+
