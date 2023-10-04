@@ -11,7 +11,11 @@
 - delete,adds a tags for launching CI/CD (see default.yml)
 
 
-```
+```bash
+molecule-init.sh
 molecule converge
 ```
+
+To check the role using a molecule (for now only the convergence script), you need to run the molecule_init.sh script, it will add everything necessary for Ansible-Molecule to work inside DIND, load all the necessary images into molecule/files/
+which will run inside DIND, they will not download heavy Gitlab from the Internet every time the molecule is launched
 
