@@ -1,0 +1,65 @@
+---
+- name: Get ID for Project {{ item.project_name }}
+  include_tasks: get_project_id.yml
+  vars:
+    project_name: "{{ item.project_name }}"
+    result_var_name: "vars_update_project_id"
+
+- name: Got the Project ID
+  debug:
+    msg: "Found Project {{ item.project_name }} with ID: {{ vars_update_project_id }}"
+
+- name: Display the Project ID
+  debug:
+    msg: "Found Project {{ item.project_name }} with ID: {{ vars_update_project_id }}"
+
+- name: Debug adding CI/CD variable
+  debug:
+    msg: "Try to add CI/CD variable {{ item.key }} with value {{ item.value }} to project {{ vars_update_project_id }}"
+
+- name: Fetch existing CI/CD variables for the project
+  uri:
+    url: "{{ GITLAB_URL }}/api/v4/projects/{{ vars_update_project_id }}/variables"
+    method: GET
+    headers:
+      PRIVATE-TOKEN: "{{ NEW_USER_TOKEN }}"
+    return_content: yes
+  retries: 10
+  delay: 5
+  register: existing_vars
+  changed_when: false
+
+- name: Check if variable key already exists
+  set_fact:
+    variable_exists: "{{ existing_vars.json | selectattr('key', 'equalto', item.key) | list | length > 0 }}"
+  
+- name: Adding CI/CD variable to the project
+  uri:
+    url: "{{ GITLAB_URL }}/api/v4/projects/{{ vars_update_project_id }}/variables"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ NEW_USER_TOKEN }}"
+    body:
+      key: "{{ item.key }}"
+      value: "{{ item.value }}"
+    body_format: form-urlencoded
+    return_content: yes
+    status_code: [200, 201]
+  retries: 10
+  delay: 5
+  when: not variable_exists
+
+- name: Update CI/CD variable in the project
+  uri:
+    url: "{{ GITLAB_URL }}/api/v4/projects/{{ vars_update_project_id }}/variables/{{ item.key }}"
+    method: PUT
+    headers:
+      PRIVATE-TOKEN: "{{ NEW_USER_TOKEN }}"
+    body:
+      value: "{{ item.value }}"
+    body_format: form-urlencoded
+    return_content: yes
+    status_code: [200]
+  retries: 10
+  delay: 5
+  when: variable_exists

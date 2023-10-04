@@ -21,34 +21,30 @@ platforms:
     platform: "linux/arm64"  
     # network: networkmolecule
     # ipaddress: "172.16.100.101"
-
+scenario:
+  name: default
+  create_sequence:
+    - dependency
+    - create
+    - prepare
+  converge_sequence:
+    - dependency
+    - create
+    - prepare
+    - converge
     
 provisioner:
   name: ansible
+  collections:
+    - path: ./molecule/default/requirements.yml
   playbooks:
     converge: converge.yml
   inventory:
     group_vars:
       all:
-        # # Role vars
-        # GITLAB_URL: "http://127.0.0.1"
-        # GITLAB_HOSTNAME: "gitlab-server"
-        # GITLAB_DOCKER_NETWORK_NAME: "bridge"
-        # INITIAL_ROOT_PASSWORD: "GHJ#hjhd@"
-        # NEW_USER_NAME: devops
-        # NEW_USER_PASS: "GHJ#hjhd@"
-        # NEW_USER_EMAIL: devops@example.com
-        # NEW_USER_TOKEN: abcd1234
-        # PROJECT_NAME: frontend-build
-        # GITLAB_PATH_SRC_PROJECT: "devops/frontend"
-        # CI_REGISTRY_LOCAL: 0
-        # CI_REGISTRY: registry
-        # CI_REGISTRY_USER: testuser
-        # CI_REGISTRY_PASSWORD: testpassword
-        # RUNNER_TAG_LIST: "docker03"
-        # repo_directory_list:
-        #   - { name: "frontend", path: "../../../../frontend" }
-        #   - { name: "frontend-build", path: "../../../../frontend_build" }
+        repo_directory_list: 
+          - { name: "frontend", branch: "master", path: "../../../../frontend" }
+          - { name: "frontend-build", branch: "main", path: "../../../../frontend_build" }
 
 
 verifier:

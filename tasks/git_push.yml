@@ -1,50 +1,50 @@
+- name: Check if project {{ repo.name }} already exists
+  uri:
+    url: "{{ GITLAB_URL }}/api/v4/projects?search={{ repo.name }}"
+    headers:
+      PRIVATE-TOKEN: "{{ NEW_USER_TOKEN }}"
+    return_content: yes
+  retries: 10
+  delay: 5
+  register: temp_result
+
+- name: Check if project data contains projects
+  debug:
+    msg: "No project found with the name '{{ repo.name }}'"
+  when: (temp_result.content | from_json) | length == 0
+
 - name: Push repo to GitLab
   ansible.builtin.debug:
     msg: "name={{ repo.name }} path={{ repo.path }}"
-
-# - name: Ensure correct ownership for git repo
-#   file:
-#     path: "{{ repo.path }}"
-#     owner: "{{ ansible_user }}"
-#     group: "{{ ansible_user }}"
-#     recurse: yes
-#     state: directory
-
-# - name: Ensure correct permissions for git repo
-#   file:
-#     path: "{{ repo.path }}"
-#     mode: '0750'
-#     recurse: yes
-#     state: directory
-
-# - name: Add safe.directory exception for git repo
-#   command:
-#     cmd: "git config --global --add safe.directory {{ repo.path }}"
-
-# - name: Add changes to git
-#   command:
-#     cmd: git add .
-#     chdir: "{{ repo.path }}"
-
-# - name: Commit changes to git
-#   command:
-#     cmd: git commit -m "Initial commit"
-#     chdir: "{{ repo.path }}"
 
 - name: Debug info about the runners
   ansible.builtin.debug:
     msg: "git remote set-url origin {{ GITLAB_URL | urlsplit('scheme') }}://oauth2:{{ NEW_USER_TOKEN }}@{{ GITLAB_URL | urlsplit('hostname') }}/{{ NEW_USER_NAME }}/{{ repo.name }}.git"
 
-- name: Set git remote URL
-  command:
-    #     git remote set-url origin "http://oauth2:$NEW_USER_TOKEN@127.0.0.1/devops/frontend.git"
-    cmd: "git remote set-url origin {{ GITLAB_URL | urlsplit('scheme') }}://oauth2:{{ NEW_USER_TOKEN }}@{{ GITLAB_URL | urlsplit('hostname') }}/{{ NEW_USER_NAME }}/{{ repo.name }}.git"
-    chdir: "{{ repo.path }}"
+- name: Set git remote URL using ansible.builtin.git
+  ansible.builtin.git:
+    repo: "{{ GITLAB_URL | urlsplit('scheme') }}://oauth2:{{ NEW_USER_TOKEN }}@{{ GITLAB_URL | urlsplit('hostname') }}/{{ NEW_USER_NAME }}/{{ repo.name }}.git"
+    dest: "{{ repo.path }}"
+    update: no
   delegate_to: localhost
 
-- name: Push changes to new origin
+# Внесение изменений с помощью ansible.builtin.git модуля не так просто, 
+# как клонирование или извлечение, поскольку модуль в первую очередь ориентирован на эти операции.
+# Поэтому мы будем использовать модуль ansible.builtin.command для diff проверок и push операций.
+- name: Check if there are changes to be pushed
+  command:
+    cmd: "git diff --quiet origin/{{ branch_name }}"
+    chdir: "{{ repo.path }}"
+  delegate_to: localhost
+  register: git_diff
+  failed_when: false
+  changed_when: false
+  vars:
+    branch_name: "{{ repo.branch }}" 
+
+- name: Push changes to new origin if there are changes
   command:
     cmd: "git push -u origin --all"
     chdir: "{{ repo.path }}"
   delegate_to: localhost
-
+  when: git_diff.rc == 1 or ((temp_result.content | from_json) | length == 0)

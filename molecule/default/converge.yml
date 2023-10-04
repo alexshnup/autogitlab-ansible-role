@@ -76,21 +76,35 @@
       loop_control:
         loop_var: repo
 
-    - name: Copy Docker image Gitlab-Server to the DinD container
-      ansible.builtin.copy:
-        src: gitlab-ce.tar.gz
-        dest: /tmp/gitlab-ce.tar.gz
-        mode: '0644'
-    - name: Load Docker image Gitlab-Server  inside DinD
-      command: docker load -i /tmp/gitlab-ce.tar.gz 
+    - name: Check if gitlab-ce.tar.gz exists in /tmp/
+      ansible.builtin.stat:
+        path: /tmp/gitlab-ce.tar.gz
+      register: server_image_file_check
+
+    - block:
+      - name: Copy Docker image Gitlab-Server to the DinD container
+        ansible.builtin.copy:
+          src: gitlab-ce.tar.gz
+          dest: /tmp/gitlab-ce.tar.gz
+          mode: '0644'
+      - name: Load Docker image Gitlab-Server  inside DinD
+        command: docker load -i /tmp/gitlab-ce.tar.gz 
+      when: not server_image_file_check.stat.exists
     
-    - name: Copy Docker image Gitlab-Runner to the DinD container
-      ansible.builtin.copy:
-        src: files/gitlab-runner.tar.gz
-        dest: /tmp/gitlab-runner.tar.gz
-        mode: '0644'
-    - name: Load Docker image Gitlab-Runner inside DinD
-      command: docker load -i /tmp/gitlab-runner.tar.gz 
+    - name: Check if gitlab-runner.tar.gz exists in /tmp/
+      ansible.builtin.stat:
+        path: /tmp/gitlab-runner.tar.gz
+      register: runner_image_file_check
+
+    - block:
+      - name: Copy Docker image Gitlab-Runner to the DinD container
+        ansible.builtin.copy:
+          src: files/gitlab-runner.tar.gz
+          dest: /tmp/gitlab-runner.tar.gz
+          mode: '0644'
+      - name: Load Docker image Gitlab-Runner inside DinD
+        command: docker load -i /tmp/gitlab-runner.tar.gz
+      when: not runner_image_file_check.stat.exists
 
     - name: Converge Check uname
       ansible.builtin.raw: uname -a

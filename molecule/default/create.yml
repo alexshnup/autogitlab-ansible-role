@@ -7,11 +7,7 @@
         children:
           molecule:
             hosts: {}
-  tasks:
-    - name: Display path to molecule_inventory
-      ansible.builtin.debug:
-        msg: "{{ molecule_ephemeral_directory }}/inventory/molecule_inventory.yml"
-
+  tasks:    
     # - name: Create a network with custom IPAM config
     #   docker_network:
     #     name: networkmolecule
@@ -20,39 +16,29 @@
     #         gateway: "{{ docker_network_gateway }}"
     #         iprange: "{{ docker_network_iprange }}"
 
-    - name: Create a container
-      community.docker.docker_container:
-        name: "{{ item.name }}"
-        hostname: "{{ item.hostname }}"
-        platform: "{{ item.platform }}"
-        # networks:
-        #   - name: networkmolecule
-        #     ipv4_address: "{{ item.ipaddress }}"
-        image: "{{ item.image }}"
-        state: started
-        # command: "{{ item.command }}"
-        log_driver: json-file
-        privileged: "{{ item.privileged }}"
-        # cgroupns_mode: host
-        ports: 
-          - '0.0.0.0:80:80'
-        exposed_ports:
-          - "{{ GITLAB_WEB_PORT | default(80) }}/tcp"
-          # - "{{ GITLAB_SSH_PORT | default(22) }}/tcp"
+    - name: Display path to molecule_inventory
+      ansible.builtin.debug:
+        msg: "{{ molecule_ephemeral_directory }}/inventory/molecule_inventory.yml"
+
+    - name: Loop over create containers
+      include_tasks: container_tasks.yml
       loop: "{{ molecule_yml.platforms }}"
-      register: result
-    
+      loop_control:
+        loop_var: item
+
     # - name: Install Python inside container
     #   community.docker.docker_container:
     #     name: "{{ item.name }}"
     #     command: "apk add python3"
     #     state: started
     #   loop: "{{ molecule_yml.platforms }}"
+  
+    - name: ===== container info =====
+      community.docker.docker_container_info:
+        name: "{{ item.name }}"
+      loop: "{{ molecule_yml.platforms }}"
+      register: result
 
-    # - name: Print some info
-    #   ansible.builtin.debug:
-    #     msg: "{{ result.results }}"
-    
     - name: Print ip addresses
       ansible.builtin.debug:
         msg: "IP Address of {{ item.container.Name }}: {{ item.container.NetworkSettings.IPAddress }}"
@@ -70,6 +56,7 @@
       loop: "{{ [result.results] if result.results is mapping else result.results }}"
       loop_control:
         label: "{{ item.container.Name if (item.container is defined) else 'Undefined container' }}"
+      # when: result
 
     - name: Add container to molecule_inventory
       vars:

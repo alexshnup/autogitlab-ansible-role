@@ -1,0 +1,26 @@
+- name: ===== Check if container already exists =====
+  community.docker.docker_container_info:
+    name: "{{ item.name }}"
+  register: container_info
+
+- name: Debug container_info
+  debug:
+    var: container_info  
+
+- name: ===== Create a container =====
+  community.docker.docker_container:
+    name: "{{ item.name }}"
+    hostname: "{{ item.hostname }}"
+    platform: "{{ item.platform }}"
+    image: "{{ item.image }}"
+    state: started
+    log_driver: json-file
+    privileged: "{{ item.privileged }}" 
+    ports: 
+      - '0.0.0.0:80:80'
+    exposed_ports:
+      - "{{ GITLAB_WEB_PORT | default(80) }}/tcp"
+  when: not container_info.exists
+  register: result
+
+

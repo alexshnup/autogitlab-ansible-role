@@ -1,8 +1,14 @@
-- name: Get GitLab container IP
-  command: docker inspect -f "{{ '{{' }} .NetworkSettings.Networks.bridge.IPAddress {{ '}}' }}" gitlab-server
-  register: gitlab_ip_result
-  changed_when: false
+- name: Get GitLab container info
+  docker_container_info:
+    name: "{{ GITLAB_HOSTNAME }}"
+  register: gitlab_container_info
+
+- name: Set GitLab container IP
+  set_fact:
+    gitlab_ip: "{{ gitlab_container_info.container.NetworkSettings.Networks.bridge.IPAddress }}"
+  when: gitlab_container_info.exists
 
 - name: Print GitLab container IP
   ansible.builtin.debug:
-    msg: "{{ gitlab_ip_result.stdout }}"
+    msg: "{{ gitlab_ip }}"
+    verbosity: 2

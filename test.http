@@ -1,0 +1,2 @@
+GET http://localhost/api/v4/projects?search=frontend&simple=true HTTP/1.1
+PRIVATE-TOKEN: abcd1234

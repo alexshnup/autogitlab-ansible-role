@@ -7,12 +7,16 @@
     dest: "/tmp/get_runner_token.rb"
 
 - name: Copy Ruby script inside GitLab container
-  command: docker cp /tmp/get_runner_token.rb {{ GITLAB_HOSTNAME }}:/tmp/
+  community.docker.docker_container_copy_into:
+    path: "/tmp/get_runner_token.rb"
+    container_path: "/tmp/get_runner_token.rb"
+    container: "{{ GITLAB_HOSTNAME }}"
 
 - name: Execute Ruby script inside GitLab container
-  command: docker exec {{ GITLAB_HOSTNAME }} /opt/gitlab/bin/gitlab-rails runner /tmp/get_runner_token.rb
+  community.docker.docker_container_exec:
+    command: "/opt/gitlab/bin/gitlab-rails runner /tmp/get_runner_token.rb"
+    container: "{{ GITLAB_HOSTNAME }}"
   register: runner_token_result
-
 
 - name: Print runner token
   ansible.builtin.debug:
@@ -20,12 +24,16 @@
   when: runner_token_result.stdout is defined
   changed_when: false
 
-
+- name: Print runner token
+  ansible.builtin.debug:
+    msg: "{{ runner_token_result.stdout }}"
+  when: runner_token_result.stdout is defined
+  changed_when: false
 
 - name: Start GitLab-Runner in Docker
   vars:
     gitlab_etc_hosts:
-      "gitlab-server": "{{ gitlab_ip_result.stdout }}"
+      "gitlab-server": "{{ gitlab_ip }}"
   docker_container:
     name: "gitlab-runner"
     image: gitlab/gitlab-runner:latest
@@ -48,7 +56,7 @@
       --url "http://{{ GITLAB_HOSTNAME }}"
       --docker-network-mode="bridge"
       --docker-privileged="true"
-      --docker-extra-hosts="{{ GITLAB_HOSTNAME }}:{{ gitlab_ip_result.stdout }}"
+      --docker-extra-hosts="{{ GITLAB_HOSTNAME }}:{{ gitlab_ip }}"
       --registration-token "{{ runner_token_result.stdout }}"
       --executor "docker"
       --docker-image alpine:3

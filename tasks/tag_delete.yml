@@ -1,0 +1,37 @@
+---
+- name: Get ID for Project {{ item.project_name }}
+  include_tasks: get_project_id.yml
+  vars:
+    project_name: "{{ item.project_name }}"
+    result_var_name: "tags_delete_project_id"
+
+- name: Display the Project ID
+  debug:
+    msg: "Found Project {{ item.project_name }} with ID: {{ tags_delete_project_id }}"
+
+- name: Check if tag already exists
+  uri:
+    url: "{{ GITLAB_URL }}/api/v4/projects/{{ tags_delete_project_id }}/repository/tags"
+    method: GET
+    headers:
+      PRIVATE-TOKEN: "{{ NEW_USER_TOKEN }}"
+    return_content: yes
+  retries: 10
+  delay: 5
+  register: existing_tags
+  changed_when: false
+
+- name: Determine if tag exists
+  set_fact:
+    tag_exists: "{{ existing_tags.json | selectattr('name', 'equalto', item.tag_name) | list | length > 0 }}"
+
+- name: Delete a tag from the project
+  uri:
+    url: "{{ GITLAB_URL }}/api/v4/projects/{{ tags_delete_project_id }}/repository/tags/{{ item.tag_name }}"
+    method: DELETE
+    headers:
+      PRIVATE-TOKEN: "{{ NEW_USER_TOKEN }}"
+    status_code: [204]
+  retries: 10
+  delay: 5
+  when: tag_exists

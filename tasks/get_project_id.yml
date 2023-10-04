@@ -1,24 +1,29 @@
 ---
+
+
 - name: Fetch the project data from GitLab API
   uri:
-    url: "{{ GITLAB_URL }}/api/v4/projects?search={{ project_name }}"
+    url: "{{ GITLAB_URL }}/api/v4/projects?search={{ project_name }}&simple=true"
     headers:
       PRIVATE-TOKEN: "{{ NEW_USER_TOKEN }}"
     return_content: yes
-  register: temp_result
+  retries: 10
+  delay: 5
+  register: get_project_id_result
 
 - name: Check if project data contains projects
   fail:
     msg: "No project found with the name '{{ project_name }}'"
-  when: (temp_result.content | from_json) | length == 0
+  when: (get_project_id_result.content | from_json) | length == 0
 
-- name: Extract the project ID
-  set_fact:
-    "{{ result_var_name }}": "{{ (temp_result.content | from_json)[0].id }}"
-  when: (temp_result.content | from_json) | length > 0
-
-- name: Display the Project ID
-  debug:
-    msg: "Found Project {{ project_name }} with ID: {{ result_var_name }}"
-  when: (temp_result.content | from_json) | length == 0
+- block:
+  - name: Extract the project ID
+    set_fact:
+      "{{ result_var_name }}": "{{ project_item.id }}"
+    when: project_item.name == project_name
+    with_items: "{{ get_project_id_result.json }}"
+    loop_control:
+      loop_var: project_item
+      label: "{{ project_item.name }}"
+  when: not (get_project_id_result.content | from_json) | length == 0
 

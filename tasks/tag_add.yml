@@ -1,0 +1,42 @@
+---
+- name: Get ID for Project {{ item.project_name }}
+  include_tasks: get_project_id.yml
+  vars:
+    project_name: "{{ item.project_name }}"
+    result_var_name: "tags_add_project_id"
+
+- name: Display the Project ID
+  debug:
+    msg: "Found Project {{ item.project_name }} with ID: {{ tags_add_project_id }}"
+
+- name: Check if tag already exists
+  uri:
+    url: "{{ GITLAB_URL }}/api/v4/projects/{{ tags_add_project_id }}/repository/tags"
+    method: GET
+    headers:
+      PRIVATE-TOKEN: "{{ NEW_USER_TOKEN }}"
+    return_content: yes
+  retries: 10
+  delay: 5
+  register: existing_tags
+  changed_when: false
+
+- name: Determine if tag exists
+  set_fact:
+    tag_exists: "{{ existing_tags.json | selectattr('name', 'equalto', item.tag_name) | list | length > 0 }}"
+
+- name: Adding tag
+  uri:
+    url: "{{ GITLAB_URL }}/api/v4/projects/{{ tags_add_project_id }}/repository/tags"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ NEW_USER_TOKEN }}"
+    body_format: form-urlencoded
+    status_code: [200, 201]
+    body:
+      tag_name: "{{ item.tag_name }}"
+      ref: "{{ item.tag_ref }}"
+      message: "{{ item.tag_message }}"
+  retries: 10
+  delay: 5
+  when: not tag_exists

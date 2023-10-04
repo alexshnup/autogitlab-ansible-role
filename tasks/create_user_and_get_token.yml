@@ -28,9 +28,12 @@
     dest: "/tmp/create_user_and_token.rb"
 
 - name: Copy Ruby script inside GitLab container
-  command: docker cp /tmp/create_user_and_token.rb {{ GITLAB_HOSTNAME }}:/tmp/
+  community.docker.docker_container_copy_into:
+    path: "/tmp/create_user_and_token.rb"
+    container_path: "/tmp/create_user_and_token.rb"
+    container: "{{ GITLAB_HOSTNAME }}"
 
 - name: Execute Ruby script inside GitLab container
-  command: docker exec {{ GITLAB_HOSTNAME }} /opt/gitlab/bin/gitlab-rails runner /tmp/create_user_and_token.rb
-
-
+  community.docker.docker_container_exec:
+    command: "/opt/gitlab/bin/gitlab-rails runner /tmp/create_user_and_token.rb"
+    container: "{{ GITLAB_HOSTNAME }}"

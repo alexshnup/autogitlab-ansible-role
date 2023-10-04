@@ -47,7 +47,8 @@
 
 # ...continue with the other tasks, such as creating a user, token, checking token, runner, etc.
 
-- include_tasks: get_container_ip.yml
+- name: Get GitLab container IP
+  include_tasks: get_container_ip.yml
 
 # and so on for other actions...
 
@@ -58,6 +59,8 @@
     headers:
       PRIVATE-TOKEN: "{{ NEW_USER_TOKEN }}"
     return_content: yes
+  retries: 10
+  delay: 5
   register: user_response
   ignore_errors: yes
 
@@ -74,7 +77,9 @@
   block:
     - debug:
         msg: "Token is NOT valid."
-    - include_tasks: create_user_and_get_token.yml
+    
+    - name: Create user and get token
+      include_tasks: create_user_and_get_token.yml 
   when: "'username' not in user_response.content"
 
 
@@ -120,7 +125,6 @@
       - "{{ item.description }}"
       - "ID: {{ item.id }}"
       - "Status: {{ item.status }}"
-      - "Contacted at: {{ item.contacted_at }}"
   with_items: "{{ runners_list }}"
   when: runners_count | int > 0
 
@@ -132,34 +136,16 @@
     loop_var: repo
 
 
-- name: Get ID for Project 1
-  include_tasks: get_project_id.yml
-  vars:
-    project_name: "{{ PROJECT_NAME }}"
-    result_var_name: "project_id"
-
-- name: Display the Project ID
-  debug:
-    msg: "Found Project {{ PROJECT_NAME }} with ID: {{ project_id }}"
-
-- name: Add CI/CD variables for a project
-  include_tasks: add_cicd_variable.yml
-  vars:
-    cicd_variables:
-      - { project_id: "{{ project_id }}", key: "GITLAB_URL_PREFIX", value: "http" }
-      - { project_id: "{{ project_id }}", key: "GITLAB_URL_HOSTNAME", value: "{{ GITLAB_HOSTNAME }}" }
-      - { project_id: "{{ project_id }}", key: "GITLAB_PATH_SRC_PROJECT", value: "{{ GITLAB_PATH_SRC_PROJECT }}" }
-      - { project_id: "{{ project_id }}", key: "CI_JOB_TOKEN", value: "{{ NEW_USER_TOKEN }}" }
-      - { project_id: "{{ project_id }}", key: "CI_REGISTRY_USER", value: "{{ CI_REGISTRY_USER }}" }
-      - { project_id: "{{ project_id }}", key: "CI_REGISTRY_PASSWORD", value: "{{ CI_REGISTRY_PASSWORD }}" }
-      - { project_id: "{{ project_id }}", key: "CI_REGISTRY", value: "{{ CI_REGISTRY }}" }
+- name: Add CI/CD variables
+  include_tasks: vars_update.yml
   loop: "{{ cicd_variables }}"
 
 
-- name: Add Tag
-  include_tasks: add_tag.yml
-  vars:
-    tag_name: "v1.0.0-test-cicd"
-    tag_message: "Tag for runner"
-    tag_ref: "main"
-    tag_project_id: "{{ project_id }}"
+- name: Delete Tags
+  include_tasks: tag_delete.yml
+  loop: "{{ tags_delete }}"
+  
+
+- name: Add Tags
+  include_tasks: tag_add.yml
+  loop: "{{ tags_add }}"

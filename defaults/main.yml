@@ -17,6 +17,25 @@ CI_REGISTRY: registry
 CI_REGISTRY_USER: testuser
 CI_REGISTRY_PASSWORD: testpassword
 RUNNER_TAG_LIST: "docker03"
-repo_directory_list:
-  - { name: "frontend", path: "../../../../frontend" }
-  - { name: "frontend-build", path: "../../../../frontend_build" }
+# Список репозиториев, которые будут запушены в GitLab и ветка, изменения в которой будем отслеживать
+# При тестах в Molecule, относительный путь указывается относительно папки molecule/default
+repo_directory_list: 
+  - { name: "frontend", branch: "master", path: "../../../../frontend" }
+  - { name: "frontend-build", branch: "main", path: "../../../../frontend_build" }
+
+# Список CICD Variables, которые будут добавлены или обновлены
+cicd_variables:
+  - { project_name: "frontend", key: "TESTENV", value: "1234" }
+  - { project_name: "frontend-build", key: "GITLAB_URL_PREFIX", value: "http" }
+  - { project_name: "frontend-build", key: "GITLAB_URL_HOSTNAME", value: "{{ GITLAB_HOSTNAME }}" }
+  - { project_name: "frontend-build", key: "GITLAB_PATH_SRC_PROJECT", value: "{{ GITLAB_PATH_SRC_PROJECT }}" }
+  - { project_name: "frontend-build", key: "CI_JOB_TOKEN", value: "{{ NEW_USER_TOKEN }}" }
+  - { project_name: "frontend-build", key: "CI_REGISTRY_USER", value: "{{ CI_REGISTRY_USER }}" }
+  - { project_name: "frontend-build", key: "CI_REGISTRY_PASSWORD", value: "{{ CI_REGISTRY_PASSWORD }}" }
+  - { project_name: "frontend-build", key: "CI_REGISTRY", value: "{{ CI_REGISTRY }}" }
+
+# Список тегов, которые будут сначала удалены и потом добавлены
+tags_delete:
+  - { project_name: "frontend-build", tag_name: "v1.0.0-test-cicd"}
+tags_add:
+  - { project_name: "frontend-build", tag_name: "v1.0.0-test-cicd", tag_message: "Tag for run CICD Job", tag_ref: "main"}
