@@ -6,9 +6,9 @@
 - gets a token for the API
 - receives a token for the runner
 - registers the runner
-- pushes repositories located in directories (see default.yml)
-- add/update CICD Variables (see default.yml)
-- delete,adds a tags for launching CI/CD (see default.yml)
+- pushes repositories located in directories (see defaults/main.yml)
+- add/update CICD Variables (see defaults/main.yml)
+- delete,adds a tags for launching CI/CD (see defaults/main.yml)
 
 
 ```bash
