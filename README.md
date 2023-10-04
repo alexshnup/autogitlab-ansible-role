@@ -12,7 +12,7 @@
 
 
 ```bash
-molecule-init.sh
+./molecule-init.sh
 molecule converge
 ```
 
