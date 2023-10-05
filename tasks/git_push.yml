@@ -28,9 +28,9 @@
     update: no
   delegate_to: localhost
 
-# Внесение изменений с помощью ansible.builtin.git модуля не так просто, 
-# как клонирование или извлечение, поскольку модуль в первую очередь ориентирован на эти операции.
-# Поэтому мы будем использовать модуль ansible.builtin.command для diff проверок и push операций.
+# Making changes using the ansible.builtin.git module is not that easy,
+# like cloning or extracting, since the module is primarily focused on these operations.
+# Therefore we will use the ansible.builtin.command module for diff checks and push operations.
 - name: Check if there are changes to be pushed
   command:
     cmd: "git diff --quiet origin/{{ branch_name }}"
