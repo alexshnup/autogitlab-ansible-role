@@ -17,13 +17,13 @@ CI_REGISTRY: registry
 CI_REGISTRY_USER: testuser
 CI_REGISTRY_PASSWORD: testpassword
 RUNNER_TAG_LIST: "docker03"
-# Список репозиториев, которые будут запушены в GitLab и ветка, изменения в которой будем отслеживать
-# При тестах в Molecule, относительный путь указывается относительно папки molecule/default
+# List of repositories that will be pushed to GitLab and the branch in which we will track changes
+# When testing in Molecule, the relative path is relative to the molecule/default folder
 repo_directory_list: 
   - { name: "frontend", branch: "master", path: "../../../../frontend" }
   - { name: "frontend-build", branch: "main", path: "../../../../frontend_build" }
 
-# Список CICD Variables, которые будут добавлены или обновлены
+# List of CICD Variables that will be added or updated
 cicd_variables:
   - { project_name: "frontend", key: "TESTENV", value: "1234" }
   - { project_name: "frontend-build", key: "GITLAB_URL_PREFIX", value: "http" }
@@ -34,7 +34,7 @@ cicd_variables:
   - { project_name: "frontend-build", key: "CI_REGISTRY_PASSWORD", value: "{{ CI_REGISTRY_PASSWORD }}" }
   - { project_name: "frontend-build", key: "CI_REGISTRY", value: "{{ CI_REGISTRY }}" }
 
-# Список тегов, которые будут сначала удалены и потом добавлены
+# List of tags that will be first removed and then added
 tags_delete:
   - { project_name: "frontend-build", tag_name: "v1.0.0-test-cicd"}
 tags_add:
